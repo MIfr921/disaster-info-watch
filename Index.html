@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <style>
+    :root { --bg:#f4f6f8; --card:#fff; --text:#17202a; --muted:#667085; --line:#dde3ea; --accent:#1f5fbf; --danger:#b42318; --ok:#067647; --warn:#b54708; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif; background:var(--bg); color:var(--text); }
+    header { position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--line); padding:14px 20px; display:flex; gap:16px; align-items:center; justify-content:space-between; }
+    h1 { margin:0; font-size:20px; }
+    button { border:0; border-radius:8px; padding:10px 14px; cursor:pointer; font-weight:600; }
+    .primary { background:var(--accent); color:#fff; }
+    .secondary { background:#eef2f6; color:#243b53; }
+    .approve { background:#0b7a53; color:#fff; }
+    .reject { background:#b42318; color:#fff; }
+    .container { max-width:1180px; margin:0 auto; padding:22px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; box-shadow:0 1px 2px rgba(16,24,40,.04); }
+    .metric { font-size:30px; font-weight:750; margin-top:6px; }
+    .muted { color:var(--muted); font-size:13px; }
+    .status { display:inline-block; border-radius:999px; padding:4px 9px; font-size:12px; font-weight:700; }
+    .status.review { background:#fff4e5; color:var(--warn); }
+    .status.approved { background:#e7f6ec; color:var(--ok); }
+    .status.rejected { background:#feeceb; color:var(--danger); }
+    .source-row,.candidate-row { display:flex; gap:12px; justify-content:space-between; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--line); }
+    .source-row:last-child,.candidate-row:last-child { border-bottom:0; }
+    .candidate-row { cursor:pointer; }
+    .candidate-row:hover { background:#f8fafc; }
+    .okdot,.errdot { width:10px; height:10px; border-radius:50%; margin-top:6px; flex:0 0 10px; }
+    .okdot { background:#12b76a; } .errdot { background:#f04438; }
+    .section-title { margin:28px 0 10px; font-size:18px; }
+    #detail { display:none; }
+    .detail-grid { display:grid; grid-template-columns:1.15fr .85fr; gap:16px; }
+    @media (max-width:850px){ .detail-grid{grid-template-columns:1fr;} }
+    textarea,input { width:100%; padding:10px; border:1px solid #cfd8e3; border-radius:8px; font:inherit; }
+    textarea { min-height:130px; resize:vertical; }
+    label { display:block; font-size:13px; font-weight:700; margin:12px 0 6px; }
+    pre { white-space:pre-wrap; word-break:break-word; background:#f8fafc; border:1px solid var(--line); padding:12px; border-radius:8px; max-height:360px; overflow:auto; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    a { color:var(--accent); }
+    .loading { opacity:.55; pointer-events:none; }
+    .error { color:var(--danger); white-space:pre-wrap; }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>避難所サイネージ更新監視 PoC</h1>
+    <div class="muted" id="now"></div>
+  </div>
+  <div class="actions">
+    <button class="secondary" onclick="runMonitor()">今すぐ監視</button>
+    <button class="secondary" onclick="createTest()">テスト候補</button>
+  </div>
+</header>
+
+<div class="container">
+  <div id="error" class="error"></div>
+  <div id="dashboard">
+    <div class="grid">
+      <div class="card"><div class="muted">要確認</div><div class="metric" id="reviewCount">-</div></div>
+      <div class="card"><div class="muted">監視URL</div><div class="metric" id="sourceCount">-</div></div>
+      <div class="card"><div class="muted">正常取得</div><div class="metric" id="healthyCount">-</div></div>
+    </div>
+
+    <h2 class="section-title">監視状態</h2>
+    <div class="card" id="sources"></div>
+
+    <h2 class="section-title">更新候補</h2>
+    <div class="card" id="candidates"></div>
+  </div>
+
+  <div id="detail">
+    <button class="secondary" onclick="backToDashboard()">← 一覧へ戻る</button>
+    <h2 id="detailTitle"></h2>
+    <div class="detail-grid">
+      <div class="card">
+        <div><span id="detailStatus"></span></div>
+        <p><a id="sourceLink" href="#" target="_blank">原文を開く ↗</a>　<a id="pdfLink" href="#" target="_blank">PDFを開く ↗</a></p>
+        <label>差分要約</label>
+        <pre id="diffSummary"></pre>
+        <label>追加・更新された部分</label>
+        <pre id="newExcerpt"></pre>
+        <label>変更前</label>
+        <pre id="oldExcerpt"></pre>
+      </div>
+      <div class="card">
+        <label>タイトル</label>
+        <input id="editTitle">
+        <label>最重要メッセージ</label>
+        <textarea id="editLead"></textarea>
+        <label>本文（1行=1項目、最大7件）</label>
+        <textarea id="editBullets"></textarea>
+        <button class="secondary" onclick="regeneratePdf()">修正してPDF再生成</button>
+
+        <label>確認者</label>
+        <input id="reviewer" placeholder="氏名">
+        <label>確認メモ</label>
+        <textarea id="reviewNote" style="min-height:80px"></textarea>
+        <div class="actions">
+          <button class="approve" onclick="review('APPROVED')">承認</button>
+          <button class="reject" onclick="review('REJECTED')">対象外</button>
+        </div>
+        <div class="muted" id="timing" style="margin-top:16px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const TOKEN = <?!= JSON.stringify(token) ?>;
+  let currentId = '';
+
+  function api(name, args, onSuccess) {
+    setLoading(true);
+    document.getElementById('error').textContent = '';
+    const runner = google.script.run
+      .withSuccessHandler(result => { setLoading(false); onSuccess && onSuccess(result); })
+      .withFailureHandler(err => { setLoading(false); document.getElementById('error').textContent = err && err.message ? err.message : String(err); });
+    runner[name].apply(runner, args || []);
+  }
+
+  function setLoading(v){ document.body.classList.toggle('loading', !!v); }
+  function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function statusBadge(status){
+    const cls = status === 'APPROVED' ? 'approved' : status === 'REJECTED' ? 'rejected' : 'review';
+    const label = status === 'APPROVED' ? '承認済' : status === 'REJECTED' ? '対象外' : '要確認';
+    return `<span class="status ${cls}">${label}</span>`;
+  }
+
+  function loadDashboard(){ api('getDashboard',[TOKEN],renderDashboard); }
+  function renderDashboard(d){
+    document.getElementById('dashboard').style.display='block';
+    document.getElementById('detail').style.display='none';
+    document.getElementById('now').textContent='表示更新: '+d.now;
+    document.getElementById('reviewCount').textContent=d.reviewRequired;
+    document.getElementById('sourceCount').textContent=d.sources.length;
+    document.getElementById('healthyCount').textContent=d.sources.filter(x=>!x.consecutive_errors).length;
+    document.getElementById('sources').innerHTML = d.sources.map(s=>`
+      <div class="source-row">
+        <div style="display:flex;gap:10px"><span class="${s.consecutive_errors?'errdot':'okdot'}"></span><div><b>${esc(s.name)}</b><div class="muted">${esc(s.category)} / <a href="${esc(s.url)}" target="_blank">原文</a></div>${s.last_error?`<div class="error">${esc(s.last_error)}</div>`:''}</div></div>
+        <div class="muted" style="text-align:right">${esc(s.http_status||'-')}<br>${esc(s.last_checked||'未確認')}</div>
+      </div>`).join('') || '<div class="muted">監視先がありません</div>';
+    document.getElementById('candidates').innerHTML = d.candidates.map(c=>`
+      <div class="candidate-row" onclick="openCandidate('${esc(c.id)}')">
+        <div><div>${statusBadge(c.status)} <b>${esc(c.title)}</b></div><div class="muted">${esc(c.source_name)} / ${esc(c.detected_at)}</div></div>
+        <div class="muted">${c.reviewer?`確認: ${esc(c.reviewer)}`:'›'}</div>
+      </div>`).join('') || '<div class="muted">更新候補はありません</div>';
+  }
+
+  function openCandidate(id){ currentId=id; location.hash='candidate='+encodeURIComponent(id); api('getCandidateDetails',[TOKEN,id],renderCandidate); }
+  function renderCandidate(c){
+    document.getElementById('dashboard').style.display='none';
+    document.getElementById('detail').style.display='block';
+    document.getElementById('detailTitle').textContent=c.title||'';
+    document.getElementById('detailStatus').innerHTML=statusBadge(c.status);
+    document.getElementById('sourceLink').href=c.source_url||'#';
+    const pdf=document.getElementById('pdfLink'); pdf.href=c.pdf_url||'#'; pdf.style.display=c.pdf_url?'inline':'none';
+    document.getElementById('diffSummary').textContent=c.diff_summary||'';
+    document.getElementById('newExcerpt').textContent=c.new_excerpt||'';
+    document.getElementById('oldExcerpt').textContent=c.old_excerpt||'';
+    document.getElementById('editTitle').value=c.draft?.title||c.title||'';
+    document.getElementById('editLead').value=c.draft?.lead||'';
+    document.getElementById('editBullets').value=(c.draft?.bullets||[]).join('\n');
+    document.getElementById('reviewer').value=c.reviewer||localStorage.getItem('signageReviewer')||'';
+    document.getElementById('reviewNote').value=c.review_note||'';
+    document.getElementById('timing').textContent=`検知: ${c.detected_at||'-'} / 通知: ${c.notified_at||'-'} / 初回閲覧: ${c.first_viewed_at||'-'} / 確認: ${c.reviewed_at||'-'}`;
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  function regeneratePdf(){
+    const reviewer=document.getElementById('reviewer').value.trim();
+    if(reviewer) localStorage.setItem('signageReviewer',reviewer);
+    const edited={
+      title:document.getElementById('editTitle').value,
+      lead:document.getElementById('editLead').value,
+      bullets:document.getElementById('editBullets').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean)
+    };
+    api('regenerateCandidatePdf',[TOKEN,currentId,edited,reviewer],renderCandidate);
+  }
+
+  function review(action){
+    const reviewer=document.getElementById('reviewer').value.trim();
+    if(!reviewer){ alert('確認者名を入力してください。'); return; }
+    localStorage.setItem('signageReviewer',reviewer);
+    const note=document.getElementById('reviewNote').value;
+    if(!confirm(action==='APPROVED'?'このPDFを承認しますか？':'この候補を対象外にしますか？')) return;
+    api('reviewCandidate',[TOKEN,currentId,action,reviewer,note],c=>{ renderCandidate(c); alert(action==='APPROVED'?'承認しました。':'対象外にしました。'); });
+  }
+
+  function backToDashboard(){ location.hash=''; currentId=''; loadDashboard(); }
+  function runMonitor(){ api('runMonitorNow',[TOKEN],renderDashboard); }
+  function createTest(){ if(!confirm('テスト候補とPDFを作成し、通知を送ります。よいですか？'))return; api('createTestCandidateFromWeb',[TOKEN],r=>{ alert('テスト候補を作成しました。'); openCandidate(r.id); }); }
+
+  window.addEventListener('hashchange', route);
+  function route(){ const m=location.hash.match(/candidate=([^&]+)/); if(m) openCandidate(decodeURIComponent(m[1])); else loadDashboard(); }
+  route();
+</script>
+</body>
+</html>

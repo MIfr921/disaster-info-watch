@@ -1,0 +1,20 @@
+# 通知メールを変更
+setNotificationEmailForPoc('your-address@example.com');
+
+# Slack Incoming Webhookを設定
+setSlackWebhookForPoc('https://hooks.slack.com/services/...');
+
+# Slack通知を解除
+setSlackWebhookForPoc('');
+
+# チーム共有URLを表示
+showPocInfo();
+
+# tokenを更新して古い共有URLを無効化
+rotateReviewTokenForPoc();
+
+# 手動で監視を実行
+monitorAllSources();
+
+# テスト候補作成
+createTestCandidate();
