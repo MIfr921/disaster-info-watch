@@ -26,7 +26,7 @@
 
 1. https://script.google.com/ を開く
 2. 「新しいプロジェクト」
-3. `Code.gs` の内容を、このZIPの `Code.gs` で丸ごと置き換える
+3. `Code.gs` の内容を、この `Code.gs` で丸ごと置き換える
 4. 左の「+」→ HTML を選び、ファイル名を `Index` にする
 5. `Index.html` の内容を貼る
 6. プロジェクト設定でタイムゾーンを `Asia/Tokyo` にする
