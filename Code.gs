@@ -2,7 +2,7 @@
  * 避難所サイネージ更新監視 PoC - Google Apps Script版
  *
  * 目的:
- * - 複数自治体ページを5分ごとに監視
+ * - 複数自治体ページを1時間ごとに監視
  * - 前回との差分から避難生活に関係する更新候補だけ抽出
  * - 原文からのみドラフトを作成（生成AIなし）
  * - A4横1ページPDFをGoogle Sheets経由で生成
@@ -11,7 +11,7 @@
  *
  * 初回:
  * 1. setupPoc() を実行して承認
- * 2. Webアプリとしてデプロイ（実行ユーザー: 自分、アクセス: 全員 または Googleアカウントを持つ全員）
+ * 2. Webアプリとしてデプロイ（実行ユーザー: 自分、アクセス: Googleアカウントを持つ全員）
  * 3. showPocInfo() を実行し、レビューURLを確認
  */
 
@@ -26,7 +26,7 @@ const APP = {
   CANDIDATE_SHEET: 'Candidates',
   LOG_SHEET: 'Logs',
   MONITOR_HANDLER: 'monitorAllSources',
-  MONITOR_MINUTES: 5,
+  MONITOR_HOURS: 1,
   MAX_DIFF_LINES: 80,
   MAX_LINKS: 180,
   MAX_BULLETS: 7,
@@ -232,7 +232,7 @@ function installMonitorTrigger_() {
 
   ScriptApp.newTrigger(APP.MONITOR_HANDLER)
     .timeBased()
-    .everyMinutes(APP.MONITOR_MINUTES)
+    .everyHours(APP.MONITOR_HOURS)
     .create();
 }
 
