@@ -1,5 +1,5 @@
 /**
- * 避難所サイネージ更新監視 PoC - Google Apps Script版
+ * 避難所情報 - Google Apps Script版
  *
  * 目的:
  * - 複数自治体ページを1時間ごとに監視
@@ -16,10 +16,10 @@
  */
 
 const APP = {
-  NAME: '避難所サイネージ更新監視PoC',
+  NAME: '避難所情報更新監視',
   TZ: 'Asia/Tokyo',
-  DB_NAME: '避難所サイネージPoC_DB',
-  ROOT_FOLDER: '避難所サイネージPoC',
+  DB_NAME: '避難所_DB',
+  ROOT_FOLDER: '避難所情報更新監視',
   PDF_FOLDER: 'PDF',
   SNAPSHOT_FOLDER: 'Snapshots',
   SOURCE_SHEET: 'Sources',
